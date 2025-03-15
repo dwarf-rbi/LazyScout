@@ -92,8 +92,7 @@ fi
 
 
 echo "[*] Step 2: Combining and sorting unique subdomains..."
-cat $output_dir/subfinder.txt $output_dir/amass.txt | sort -u > $output_dir/all_subdomains.txt > /dev/null 2>&1
-
+cat $output_dir/subfinder.txt $output_dir/amass.txt | sort -u > $output_dir/all_subdomains.txt
 
 SUBDOMAIN_COUNT=$(wc -l < $output_dir/all_subdomains.txt)
 
@@ -101,7 +100,7 @@ echo "Status: Unique subdomains found $UNIQUE_SUBDOMAINS"
 
 
 echo "[*] Step 3: Identifying live hosts with httpx..."
-httpx -silent -status-code $THREADS $RATELIMIT -l $output_dir/all_subdomains.txt -o $output_dir/httpx_all.txt  > /dev/null 2>&1
+httpx -silent -status-code $THREADS $RATELIMIT -l $output_dir/all_subdomains.txt -o $output_dir/httpx_all.txt
 
 # ✅ Correctly extract status codes using the right regex pattern
 grep -E '200' $output_dir/httpx_all.txt | cut -d ' ' -f1 > $output_dir/httpx_200.txt
