@@ -115,14 +115,14 @@ if [[ -s $output_dir/httpx_200.txt ]]; then
     cat $output_dir/httpx_200.txt | waybackurls > $output_dir/waybackurls.txt
     cat $output_dir/httpx_200.txt | gau > $output_dir/getallurls.txt
     katana -list $output_dir/httpx_200.txt $RATELIMIT -silent -o $output_dir/katana_urls.txt 2>/dev/null
-    gospider -S $output_dir/httpx_200.txt -o $output_dir/gospider_output -d 2 $THREADS -c 10 &> /dev/null
+    gospider -S $output_dir/httpx_200.txt -o $output_dir/gospider_output $THREADS -c 10 &> /dev/null
 else
     echo "[!] No live hosts with status 200 found. Skipping URL extraction..."
     touch $output_dir/waybackurls.txt $output_dir/getallurls.txt $output_dir/katana_urls.txt
 fi
 
 cat $output_dir/gospider_output/* > $output_dir/gospider_combined.txt 2>/dev/null
-cat gospider_combined.txt | grep -oP '(http|https)://\S+' | sort -u > $output_dir/gospider_urls.txt
+cat $output_dir/gospider_combined.txt | grep -oP '(http|https)://\S+' | sort -u > $output_dir/gospider_urls.txt
 
 echo "[*] Step 5: Sorting and categorizing URLs..."
 cat $output_dir/waybackurls.txt $output_dir/getallurls.txt $output_dir/katana_urls.txt $output_dir/gospider_urls.txt | sort -u > $output_dir/all_urls.txt
