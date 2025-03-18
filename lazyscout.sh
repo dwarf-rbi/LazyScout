@@ -100,7 +100,7 @@ echo "Status: Unique subdomains found $UNIQUE_SUBDOMAINS"
 
 
 echo "[*] Step 3: Identifying live hosts with httpx..."
-httpx -silent -status-code $THREADS $RATELIMIT -l $output_dir/all_subdomains.txt -o $output_dir/httpx_all.txt
+httpx -silent -status-code -location -tech-detect $THREADS $RATELIMIT -l $output_dir/all_subdomains.txt -o $output_dir/httpx_all.txt
 
 # ✅ Correctly extract status codes using the right regex pattern
 grep -E '200' $output_dir/httpx_all.txt | cut -d ' ' -f1 > $output_dir/httpx_200.txt
@@ -108,13 +108,15 @@ grep -E '301|302' $output_dir/httpx_all.txt | cut -d ' ' -f1 > $output_dir/httpx
 grep -E '401' $output_dir/httpx_all.txt | cut -d ' ' -f1 > $output_dir/httpx_401.txt
 grep -E '403' $output_dir/httpx_all.txt | cut -d ' ' -f1 > $output_dir/httpx_403.txt
 
-httpx -silent -l $output_dir/all_subdomains.txt -title -tech-detect -status-code -location > $output_dir/httpx_detailed.txt
-
 echo "[*] Step 4: Extracting URLs from live hosts..."
 if [[ -s $output_dir/httpx_200.txt ]]; then
+    echo " -  Step 4.1: Staring Waybackurls"
     cat $output_dir/httpx_200.txt | waybackurls > $output_dir/waybackurls.txt
+    echo " -  Step 4.2: Staring GAU"
     cat $output_dir/httpx_200.txt | gau > $output_dir/getallurls.txt
+    echo " -  Step 4.3: Staring Katana"
     katana -list $output_dir/httpx_200.txt $RATELIMIT -silent -o $output_dir/katana_urls.txt 2>/dev/null
+    echo " -  Step 4.4: Staring gospider"
     gospider -S $output_dir/httpx_200.txt -o $output_dir/gospider_output $THREADS -c 10 &> /dev/null
 else
     echo "[!] No live hosts with status 200 found. Skipping URL extraction..."
@@ -127,11 +129,13 @@ cat $output_dir/gospider_combined.txt | grep -oP '(http|https)://\S+' | sort -u 
 echo "[*] Step 5: Sorting and categorizing URLs..."
 cat $output_dir/waybackurls.txt $output_dir/getallurls.txt $output_dir/katana_urls.txt $output_dir/gospider_urls.txt | sort -u > $output_dir/all_urls.txt
 
-grep "\.js$" $output_dir/all_urls.txt > $output_dir/js_urls.txt
+grep "\.js$" $output_dir/all_urls.txt | grep -viE "_next|jquery|moment" > $output_dir/js_urls.txt
 grep "\.php$" $output_dir/all_urls.txt > $output_dir/php_urls.txt
 grep "\.jsp$" $output_dir/all_urls.txt > $output_dir/jsp_urls.txt
 grep "\.aspx$" $output_dir/all_urls.txt > $output_dir/aspx_urls.txt
-grep -Ei "admin|login|register|forgotpassword|signup" $output_dir/all_urls.txt > $output_dir/admin_urls.txt
+grep -Ei "login|signin|auth|register|signup|reset|forgot|verify|session|password|create-account|recover|password-reset|2fa|otp|verify|xml|upload|data|api/signup|api/login|api/2fa" $output_dir/all_urls.txt > $output_dir/auth_pages.txt
+grep -Ei "wp-content|wp-admin|wp-includes|xmlrpc.php|wp-login.php|wp-json" $output_dir/all_urls.txt > $output_dir/wordpress_urls.txt
+grep -Ei "url=|uri=|redirect=|link=|file=|page=|to=|u=|forward=|next=" $output_dir/all_urls.txt > $output_dir/ssrfopenredirect_candidates.txt
 grep "\?" $output_dir/all_urls.txt > $output_dir/urls_with_params.txt
 
 # Track end time
@@ -153,24 +157,29 @@ JS_COUNT=$(wc -l < $output_dir/js_urls.txt)
 PHP_COUNT=$(wc -l < $output_dir/php_urls.txt)
 JSP_COUNT=$(wc -l < $output_dir/jsp_urls.txt)
 ASPX_COUNT=$(wc -l < $output_dir/aspx_urls.txt)
-ADMIN_COUNT=$(wc -l < $output_dir/admin_urls.txt)
+AUTH_COUNT=$(wc -l < $output_dir/auth_pages.txt)
+wORDPRESS_COUNT=$(wc -l < $output_dir/wordpress_urls.txt)
+SSRF_COUNT=$(wc -l < $output_dir/ssrfopenredirect_candidates.txt)
 PARAM_URL_COUNT=$(wc -l < $output_dir/urls_with_params.txt)
 
 # Display summary
 echo ""
-echo -e "\e[32m================= LazyScout Summary =================\e[0m"
-echo -e "\e[34m[*] Subdomains found: $SUBDOMAIN_COUNT\e[0m"
-echo -e "\e[34m[*] Live hosts found: $LIVE_HOST_COUNT\e[0m"
-echo -e "\e[33m   - Respond: 200: $HTTPX_200\e[0m"
-echo -e "\e[33m   - Respond: 301-302: $HTTPX_301_302\e[0m"
-echo -e "\e[33m   - Respond: 401: $HTTPX_401\e[0m"
-echo -e "\e[33m   - Respond: 403: $HTTPX_403\e[0m"
-echo -e "\e[34m[*] Total URLs extracted: $TOTAL_URLS\e[0m"
-echo -e "\e[33m   - JavaScript URLs: $JS_COUNT\e[0m"
-echo -e "\e[33m   - PHP URLs: $PHP_COUNT\e[0m"
-echo -e "\e[33m   - JSP URLs: $JSP_COUNT\e[0m"
-echo -e "\e[33m   - ASPX URLs: $ASPX_COUNT\e[0m"
-echo -e "\e[33m   - Admin/Login URLs: $ADMIN_COUNT\e[0m"
-echo -e "\e[33m   - URLs with Parameters: $PARAM_URL_COUNT\e[0m"
-echo -e "\e[32m[*] Total execution time: ${HOURS}h ${MINUTES}m ${SECONDS}s\e[0m"
-echo -e "\e[32m===================================================\e[0m"
+echo -e "\e[32m================= LazyScout Summary =================\e[0m"  >> summary.txt
+echo -e "\e[34m[*] Subdomains found: $SUBDOMAIN_COUNT\e[0m"  >> summary.txt
+echo -e "\e[34m[*] Live hosts found: $LIVE_HOST_COUNT\e[0m"  >> summary.txt
+echo -e "\e[33m   - Respond: 200: $HTTPX_200\e[0m"  >> summary.txt
+echo -e "\e[33m   - Respond: 301-302: $HTTPX_301_302\e[0m"  >> summary.txt
+echo -e "\e[33m   - Respond: 401: $HTTPX_401\e[0m"  >> summary.txt
+echo -e "\e[33m   - Respond: 403: $HTTPX_403\e[0m"  >> summary.txt
+echo -e "\e[34m[*] Total URLs extracted: $TOTAL_URLS\e[0m"  >> summary.txt
+echo -e "\e[33m   - JavaScript URLs: $JS_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - PHP URLs: $PHP_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - JSP URLs: $JSP_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - ASPX URLs: $ASPX_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - Auth URLs: $AUTH_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - Wordpres URLs: $wORDPRESS_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - SSRF URLs: $SSRF_COUNT\e[0m" >> summary.txt
+echo -e "\e[33m   - URLs with Parameters: $PARAM_URL_COUNT\e[0m" >> summary.txt
+echo -e "\e[32m[*] Total execution time: ${HOURS}h ${MINUTES}m ${SECONDS}s\e[0m" >> summary.txt
+echo -e "\e[32m===================================================\e[0m" >> summary.txt
+echo "" >> summary.txt
