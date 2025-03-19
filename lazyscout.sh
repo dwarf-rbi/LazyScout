@@ -144,9 +144,9 @@ TOTAL_TIME=$((END_TIME - START_TIME))
 HOURS=$((TOTAL_TIME / 3600))
 MINUTES=$(((TOTAL_TIME % 3600) / 60))
 SECONDS=$((TOTAL_TIME % 60))
+CURRENT_TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 
 # Count results
-
 LIVE_HOST_COUNT=$(wc -l < $output_dir/httpx_all.txt)
 HTTPX_200=$(wc -l < $output_dir/httpx_200.txt)
 HTTPX_301_302=$(wc -l < $output_dir/httpx_301_302.txt)
@@ -165,6 +165,7 @@ PARAM_URL_COUNT=$(wc -l < $output_dir/urls_with_params.txt)
 # Display summary
 echo ""
 echo -e "\e[32m================= LazyScout Summary =================\e[0m"  >> summary.txt
+echo -e "\e[32m   - Logtime: $CURRENT_TIMESTAMP \e[0m"  >> summary.txt
 echo -e "\e[34m[*] Subdomains found: $SUBDOMAIN_COUNT\e[0m"  >> summary.txt
 echo -e "\e[34m[*] Live hosts found: $LIVE_HOST_COUNT\e[0m"  >> summary.txt
 echo -e "\e[33m   - Respond: 200: $HTTPX_200\e[0m"  >> summary.txt
@@ -183,3 +184,5 @@ echo -e "\e[33m   - URLs with Parameters: $PARAM_URL_COUNT\e[0m" >> summary.txt
 echo -e "\e[32m[*] Total execution time: ${HOURS}h ${MINUTES}m ${SECONDS}s\e[0m" >> summary.txt
 echo -e "\e[32m===================================================\e[0m" >> summary.txt
 echo "" >> summary.txt
+
+cat summary.txt
